@@ -35,6 +35,7 @@ where [func-e](https://func-e.io/)
 - [ ] Add support for UDP
 - [ ] Add support for IPv6
 - [ ] Add support for default policy(e.g. block all except 80,443,8080, or allow to bypass the proxy for other ports)
+- [ ] Add verbose flag
 
 
 
