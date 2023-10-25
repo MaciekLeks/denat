@@ -1,10 +1,10 @@
 # Meaning
-In very formal Polish language, "denat" stands for a deceased person and is mostly used for individuals who have passed away suddenly or under unknown circumstances.
+In very formal Polish language, _denat_ stands for a deceased person and is mostly used for individuals who have passed away suddenly or under unknown circumstances.
 
 # Info
 _denat_ is a straightforward tool that allows you to redirect network packets to another host, 
 effectively creating a dynamic forward proxy. 
-It achieves the same functionality as netfilter/iptables DNAT (for example, `iptables -t nat -A OUTPUT -o eth0 -p tcp --dport 443 -j REDIRECT --to-port 10080`). 
+It achieves the same functionality as netfilter/iptables DNAT (for example, `iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination 192.168.59.120:10080`). 
 However, instead of relying on netfilter functionalities, it leverages eBPF technology. 
 
 
@@ -14,7 +14,7 @@ You might wonder why it's called "denat," as it's likely not a widely used tool.
 
 # Use
 ```bash
-sudo denat -pfproxy=192.168.59.120:10080 --dfports=80,443
+sudo denat -pfproxy=192.168.59.120:10080 --dfports=80
 ```
 
 To use it with envoy config:
