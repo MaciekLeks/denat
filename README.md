@@ -25,7 +25,9 @@ func-e run -c envoy-config-80.yml
 ```
 where [func-e](https://func-e.io/)
 
-
+# TODO:
+- [ ] Add support for UDP
+- [ ] Add support for IPv6
 
 
 
