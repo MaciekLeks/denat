@@ -13,7 +13,8 @@ You might wonder why it's called "denat," as it's likely not a widely used tool.
 2. I required such functionality for another project of mine, so I decided to create this standalone tool to explore the advantages and disadvantages of packet DNAT (Destination Network Address Translation) as an approach, as opposed to the Linux tproxy method of redirection.
 
 # Pre-requisites
-- libbpf
+- _libbpf_ installed
+- _iproute2_ package installed
 
 # Use
 ```bash
