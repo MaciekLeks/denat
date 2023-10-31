@@ -18,7 +18,7 @@ You might wonder why it's called "denat," as it's likely not a widely used tool.
 
 # Use
 ```bash
-sudo denat -pfproxy=192.168.59.120:10080 --dfports=80
+sudo denat -dfproxy=192.168.59.120:10080 -dfports=80
 ```
 where: 
 - `pfproxy` is the L4 proxy address to which the packets will be redirected
@@ -33,10 +33,11 @@ func-e run -c envoy-config-80.yml
 where [func-e](https://func-e.io/)
 
 # TODO:
-- [ ] Add support for UDP
-- [ ] Add support for IPv6
-- [ ] Add support for default policy(e.g. block all except 80,443,8080, or allow to bypass the proxy for other ports)
-- [ ] Add verbose flag
+- [ ] prevent routing loops
+- [ ] add support for UDP
+- [ ] add support for IPv6
+- [ ] add support for default policy(e.g. block all except 80,443,8080, or allow to bypass the proxy for other ports)
+- [ ] add verbose flag
 
 
 

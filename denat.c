@@ -90,7 +90,7 @@ int get_hop_info(const char *addr_in, char *iface, char *rt_addr_in) {
 
 
 static struct hook_err
-setup_hook(struct denat_bpf *obj, int ifindex, enum bpf_tc_attach_point attach_point, bool proxy,
+setup_hook(struct denat_bpf *obj, int ifindex, enum bpf_tc_attach_point attach_point,
            struct bpf_tc_hook **ptc_hook, struct bpf_tc_opts **ptc_opts) {
     int err;
     struct bpf_program *prog;
@@ -310,13 +310,13 @@ int main(int argc, char *argv[]) {
 
     struct bpf_tc_hook *tc_hook[HOOK_COUNT];
     struct bpf_tc_opts *tc_opts[HOOK_COUNT];
-    struct hook_err ingress_err = setup_hook(obj, edge.ifindx, BPF_TC_INGRESS, true, &tc_hook[0], &tc_opts[0]);
+    struct hook_err ingress_err = setup_hook(obj, edge.ifindx, BPF_TC_INGRESS, &tc_hook[0], &tc_opts[0]);
     if (ingress_err.err && ingress_err.err != -EEXIST) {
         fprintf(stderr, "Error: Failed to create proxy TC ingress hook: %d\n", err);
         goto cleanup;
     }
 
-    struct hook_err egress_err = setup_hook(obj, /*eno1*/2, BPF_TC_EGRESS, false, &tc_hook[1], &tc_opts[1]);
+    struct hook_err egress_err = setup_hook(obj, /*eno1*/2, BPF_TC_EGRESS, &tc_hook[1], &tc_opts[1]);
     if (egress_err.err && egress_err.err != -EEXIST) {
         fprintf(stderr, "Error: Failed to create TC egress hook: %d\n", err);
         goto cleanup;

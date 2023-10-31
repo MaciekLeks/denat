@@ -10,7 +10,9 @@ static_resources:
     address:
       socket_address:
         protocol: TCP
-        address: 0.0.0.0
+        #address: 0.0.0.0
+        address: 192.168.59.1
+        #address: 127.0.0.1
         port_value: 10080
     filter_chains:
     - filters:

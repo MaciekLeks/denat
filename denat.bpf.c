@@ -270,7 +270,8 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
         if (is_ipv4) {
             //char src_ip4_buffer[32], dest_ip4_buffer[120];
             //u32_to_ipv4(bpf_ntohl(original_tuple.ipv4.saddr), src_ip4_buffer);
-            bpf_printk("bpf_sock:original_tuple: saddr:sport=%s:%d, daddr:dport=%s:%d",
+            bpf_printk("bpf_sock:original_tuple(is_egress:%d): saddr:sport=%s:%d, daddr:dport=%s:%d",
+                       is_egress,
                        BE32_TO_IPV4(original_tuple.ipv4.saddr), bpf_ntohs(original_tuple.ipv4.sport),
                        BE32_TO_IPV4(original_tuple.ipv4.daddr), bpf_ntohs(original_tuple.ipv4.dport));
         } else if (is_ipv6) {
@@ -279,6 +280,8 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
                        original_tuple.ipv6.daddr, original_tuple.ipv6.dport);
         }
     }
+
+    // return TC_ACT_OK;
 
 //    struct bpf_sock *sk = NULL;
 //    if (is_ipv4)
@@ -299,7 +302,24 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
     //if ((sport == 10080 || dport == 10080) && !is_egress) {
     __u16 sport = is_ipv4 ? original_tuple.ipv4.sport : (is_ipv6 ? original_tuple.ipv6.sport : 0);
     //if (!is_egress && sport == bpf_htons(10080)) {
+    __u16 dport = is_ipv4 ? original_tuple.ipv4.dport : (is_ipv6 ? original_tuple.ipv6.dport : 0); //move before egress
+    if (!is_egress && is_ipv4) {
+        //skb->mark |= 1234;
+
+        //    bpf_printk(">>>in>>>vboxnet3->eno1 %s:%u-> %s:%u", BE32_TO_IPV4(original_tuple.ipv4.saddr),  bpf_ntohs(sport),  BE32_TO_IPV4(original_tuple.ipv4.daddr), bpf_ntohs(dport));
+        //  bpf_printk(">>>in>>>vboxnet3->eno1 %u-> %s:%u",  bpf_ntohs(sport),  BE32_TO_IPV4(original_tuple.ipv4.daddr), bpf_ntohs(dport));
+
+        //bpf_printk(">>>in>>>vboxnet3->eno1 %u-> %u is_egress:%d",  bpf_ntohs(sport),bpf_ntohs(dport), is_egress);
+    }
+
     if (!is_egress && sport == edge->d_nport) {
+
+        //{loops
+
+        //loops}
+
+
+        //bpf_printk(">>>in>>>skb->mark:%x, port:%u", skb->mark, bpf_ntohs(sport));
 
         struct bpf_sock *sk = skb->sk;
         if (sk) {
@@ -329,6 +349,7 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
             bpf_printk("valp is null for port:%d", bpf_ntohs(original_tuple.ipv4.dport));
             return TC_ACT_SHOT;
         }
+
 
 
         /*{fib
@@ -405,11 +426,14 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
         return (int) ret;
     }
 
-    __u16 dport = is_ipv4 ? original_tuple.ipv4.dport : (is_ipv6 ? original_tuple.ipv6.dport : 0);
+
+
+    // __u16 dport = is_ipv4 ? original_tuple.ipv4.dport : (is_ipv6 ? original_tuple.ipv6.dport : 0); //move before egress
     //if (is_egress && dport == bpf_htons(80)) {
     if (is_egress && is_forwarded_port(dport)) {
-        bpf_printk("port: sport=%d, dport=%d, is_egress=%d, ifindex=%d", bpf_ntohs(sport), bpf_ntohs(dport), is_egress,
-                   skb->ifindex);
+        bpf_printk("port: sport=%d, dport=%d, is_egress=%d, ifindex=%d, is_forwarded:%d", bpf_ntohs(sport),
+                   bpf_ntohs(dport), is_egress,
+                   skb->ifindex, is_forwarded_port(dport));
         //__u32 ifindx = 1; //local loopback
         //__u32 ifindx = 8; //ubu-ebpf3
         //__u32 ifindx = 2; //eno1
@@ -420,24 +444,6 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
         //__u32 new_daddr = 0xbcb864b6; //188.184.100.182 (info.cern.ch)
         //__u32 new_saddr = 0xc0a83b01; //192.168.59.1 (host)
         //__u32 new_saddr = 0xc0a86402; //192.168.100.2 (host)
-
-        //{! Move to a new function
-//        __u32 key = EGRESS_CFG_INDX;
-//        struct edge *edge = bpf_map_lookup_elem(&config_map, &key);
-//        if (!edge) {
-//            bpf_printk("Failed to lookup config map: %d\n", key);
-//            return TC_ACT_SHOT;
-//        }
-//
-//        bpf_printk("ifindx=%d, g_naddr=%d, d_naddr=%d", edge->ifindx, edge->g_naddr[0], edge->d_naddr[0]);
-//        //!}
-
-//
-//        if (!is_ipv6) {
-//            struct iphdr *ipv4 = (struct iphdr *) ip;
-//            ipv4_print_ip("[IPv4] --- src", "", ipv4->saddr);
-//            ipv4_print_ip("[IPv4] --- dest", "", ipv4->daddr);
-//        }
 
         //long ret = rewrite_addr(skb, iphdrl, new_daddr, 1);
         ret = rewrite_addr(skb, iphdrl, edge->d_naddr[0], 1);
@@ -553,6 +559,7 @@ SEC(
 int tc_egress(struct __sk_buff *skb) {
     return process_relative(skb, true);
 }
+
 
 SEC(
 

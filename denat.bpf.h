@@ -56,7 +56,7 @@ struct {
     __type(key, struct forwarded_port);
     __type(value, __u32);
     __uint(max_entries, 256);
-    __uint(pinning, LIBBPF_PIN_BY_NAME);
+    //__uint(pinning, LIBBPF_PIN_BY_NAME);
 } forwarded_port_map SEC(".maps");
 
 struct {
