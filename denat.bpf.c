@@ -304,23 +304,8 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
     __u16 sport = is_ipv4 ? original_tuple.ipv4.sport : (is_ipv6 ? original_tuple.ipv6.sport : 0);
     //if (!is_egress && sport == bpf_htons(10080)) {
     __u16 dport = is_ipv4 ? original_tuple.ipv4.dport : (is_ipv6 ? original_tuple.ipv6.dport : 0); //move before egress
-    if (!is_egress && is_ipv4) {
-        //skb->mark |= 1234;
-
-        //    bpf_printk(">>>in>>>vboxnet3->eno1 %s:%u-> %s:%u", BE32_TO_IPV4(original_tuple.ipv4.saddr),  bpf_ntohs(sport),  BE32_TO_IPV4(original_tuple.ipv4.daddr), bpf_ntohs(dport));
-        //  bpf_printk(">>>in>>>vboxnet3->eno1 %u-> %s:%u",  bpf_ntohs(sport),  BE32_TO_IPV4(original_tuple.ipv4.daddr), bpf_ntohs(dport));
-
-        //bpf_printk(">>>in>>>vboxnet3->eno1 %u-> %u is_egress:%d",  bpf_ntohs(sport),bpf_ntohs(dport), is_egress);
-    }
 
     if (!is_egress && sport == edge->d_nport) {
-
-        //{loops
-
-        //loops}
-
-
-        //bpf_printk(">>>in>>>skb->mark:%x, port:%u", skb->mark, bpf_ntohs(sport));
 
         struct bpf_sock *sk = skb->sk;
         if (sk) {
