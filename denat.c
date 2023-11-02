@@ -79,6 +79,8 @@ int get_hop_info(const char *addr_in, char *iface, char *rt_addr_in) {
             sscanf(dev_start, "%s", iface);
             sscanf(src_start, "%s", rt_addr_in);
 
+            printf("Info: config for iface: %s, rt_addr_in: %s\n", iface, rt_addr_in);
+
             pclose(fp);
             return 0;
         }
@@ -164,12 +166,51 @@ int store_config(const struct denat_bpf *obj, const char *proxy_daddr_in, unsign
     }
 
     //convert presentation to numeric using inet_pton for rt_addr_in
-    struct in_addr gaddr, daddr;
-    inet_pton(AF_INET, rt_addr_in, &gaddr);
-    inet_pton(AF_INET, proxy_daddr_in, &daddr);
+//    struct in_addr gaddr, daddr;
+//    inet_pton(AF_INET, rt_addr_in, &gaddr);
+//    inet_pton(AF_INET, proxy_daddr_in, &daddr);
+//
+//    edge->g_naddr[0] = gaddr.s_addr;
+//    edge->d_naddr[0] = daddr.s_addr;
+    // Determine if the address is IPv4 or IPv6
 
-    edge->g_naddr[0] = gaddr.s_addr;
-    edge->d_naddr[0] = daddr.s_addr;
+    if (strchr(proxy_daddr_in, ':')) {
+        struct in6_addr addr6;
+        // This is an IPv6 address
+        if (inet_pton(AF_INET6, proxy_daddr_in, &addr6) != 1) {
+            fprintf(stderr, "Error: Invalid IPv6 address format\n");
+            return -1;
+        }
+        // Copy the IPv6 address to edge structure (assuming g_naddr and d_naddr are large enough)
+        memcpy(edge->d_naddr, &addr6, sizeof(addr6));
+        memset(&addr6, 0, sizeof(struct in6_addr));
+
+        if (inet_pton(AF_INET6, rt_addr_in, &addr6) != 1) {
+            fprintf(stderr, "Error: Invalid IPv6 route address format\n");
+            return 1;
+        }
+        memcpy(edge->g_naddr, &addr6, sizeof(addr6));
+    } else {
+        struct in_addr addr4;
+        // This is an IPv4 address
+        if (inet_pton(AF_INET, proxy_daddr_in, &addr4) != 1) {
+            fprintf(stderr, "Error: Invalid IPv4 address format\n");
+            return -1;
+        }
+        // Only set the first element as IPv4 is 32-bit
+        edge->d_naddr[0] = addr4.s_addr;
+        addr4.s_addr = 0; // Clear the address
+
+        if (inet_pton(AF_INET, rt_addr_in, &addr4) != 1) {
+            fprintf(stderr, "Error: Invalid IPv4 route address format\n");
+            return 1;
+        }
+        edge->g_naddr[0] = addr4.s_addr;
+    }
+
+
+
+
     edge->d_nport = htons(proxy_dport);
     edge->ifindx = ifindx;
 
@@ -200,15 +241,33 @@ int store_forwarded_ports(const struct denat_bpf *obj, unsigned int ports[], int
     return 0;
 }
 
+
 void parse_args(int argc, char *argv[], char **ip_address, int *proxy_port, unsigned int **port_list, int *num_ports) {
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "-dfproxy=", 9) == 0) {
             char *proxy_str = strchr(argv[i], '=') + 1;
-            char *colon = strchr(proxy_str, ':');
-            if (colon != NULL) {
+            // Check if IPv6 address format [address]:port
+            char *bracket = strchr(proxy_str, '[');
+            char *colon = strrchr(proxy_str, ':');
+            if (bracket != NULL && colon != NULL) {
+                char *end_bracket = strchr(proxy_str, ']');
+                if (end_bracket != NULL) {
+                    *end_bracket = '\0'; // Null-terminate the address
+                    *ip_address = bracket + 1; // Start after the opening bracket
+                    if (colon[1] != '\0') {
+                        *proxy_port = strtoul(colon + 1, NULL, 10);
+                    } else {
+                        fprintf(stderr, "Error: Port number format error\n");
+                        exit(1);
+                    }
+                } else {
+                    fprintf(stderr, "Error: Missing closing bracket for IPv6 address\n");
+                    exit(1);
+                }
+            } else if (colon != NULL) { // IPv4 address format address:port
                 *colon = '\0';
                 *ip_address = proxy_str;
-                if (colon[1] != '\0' && strlen(colon + 1) > 0) {
+                if (colon[1] != '\0') {
                     *proxy_port = strtoul(colon + 1, NULL, 10);
                 } else {
                     fprintf(stderr, "Error: Port number format error\n");
@@ -235,6 +294,43 @@ void parse_args(int argc, char *argv[], char **ip_address, int *proxy_port, unsi
         }
     }
 }
+
+
+//void parse_args(int argc, char *argv[], char **ip_address, int *proxy_port, unsigned int **port_list, int *num_ports) {
+//    for (int i = 1; i < argc; i++) {
+//        if (strncmp(argv[i], "-dfproxy=", 9) == 0) {
+//            char *proxy_str = strchr(argv[i], '=') + 1;
+//            char *colon = strchr(proxy_str, ':');
+//            if (colon != NULL) {
+//                *colon = '\0';
+//                *ip_address = proxy_str;
+//                if (colon[1] != '\0' && strlen(colon + 1) > 0) {
+//                    *proxy_port = strtoul(colon + 1, NULL, 10);
+//                } else {
+//                    fprintf(stderr, "Error: Port number format error\n");
+//                    exit(1);
+//                }
+//            } else {
+//                fprintf(stderr, "Error: Wrong proxy IP and port number format\n");
+//                exit(1);
+//            }
+//        } else if (strncmp(argv[i], "-dfports=", 9) == 0) {
+//            char *ports_str = strchr(argv[i], '=') + 1;
+//            char *token = strtok(ports_str, ",");
+//            while (token != NULL) {
+//                if (strlen(token) > 0) {
+//                    (*num_ports)++;
+//                    *port_list = realloc(*port_list, (*num_ports) * sizeof(int));
+//                    (*port_list)[(*num_ports) - 1] = strtoul(token, NULL, 10);
+//                } else {
+//                    fprintf(stderr, "Error: Wrong port list format\n");
+//                    exit(1);
+//                }
+//                token = strtok(NULL, ",");
+//            }
+//        }
+//    }
+//}
 
 
 int main(int argc, char *argv[]) {
