@@ -23,9 +23,9 @@ get_tuple(struct __sk_buff *skb, struct bpf_sock_tuple *sock_tuple, struct connt
         *is_ipv4 = true;
     } else if (skb->protocol == bpf_htons(ETH_P_ARP)) {
         *is_arp = true;
-        return -1;
+        return 1;
     } else {
-        return -1;
+        return 1;
     }
 
     if (data + ETH_HLEN > data_end)
@@ -45,15 +45,14 @@ get_tuple(struct __sk_buff *skb, struct bpf_sock_tuple *sock_tuple, struct connt
 
     //L3
     off = ETH_HLEN; //off for tc must be moved ETH_HLEN octets forward
-    __u8 version = *(__u8 *) (long) (data + off) & 0xF0 >> 2;
+    __u8 version = *(__u8 *) (long) (data + off) >> 4;
+    //__u8 version = *(__u8 *) (long) (data + off) & 0xF0 >> 2;
     if (data + off + sizeof(__u8) > data_end) {
         return -11;
     }
     if (*is_ipv6 && version != 6) {
-        bpf_printk("[IPv6] --- version:%d", version);
         return -12;
     } else if (*is_ipv4 && version != 4) {
-        //bpf_printk("[IPv4] --- version:%d!=%d", version, 4);
         return -13;
     }
 
@@ -261,6 +260,8 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
                    ret, is_ipv4, is_ipv6, is_udp, is_tcp);
     }
     if (ret < 0) {
+        return TC_ACT_SHOT;
+    } else if (ret > 0) {
         return TC_ACT_OK;
     }
 

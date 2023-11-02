@@ -9,6 +9,10 @@ BPF_H = ${TARGET:=.bpf.h}
 .PHONY: all
 all: $(TARGET) $(BPF_OBJ)
 
+.PHONY: clean
+dev: clean all
+	rsync -ahv --exclude '.git' ./* mlk@ubu-ebpf3:/home/mlk/dev/denat
+
 $(TARGET): $(USER_C) $(USER_SKEL) commons.h
 	gcc -Wall -o $(TARGET) $(USER_C) -L../libbpf/src -l:libbpf.a -lelf -lz
 
