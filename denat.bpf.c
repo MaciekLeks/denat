@@ -23,9 +23,9 @@ get_tuple(struct __sk_buff *skb, struct bpf_sock_tuple *sock_tuple, struct connt
         *is_ipv4 = true;
     } else if (skb->protocol == bpf_htons(ETH_P_ARP)) {
         *is_arp = true;
-        return 0;
+        return -1;
     } else {
-        return 0;
+        return -1;
     }
 
     if (data + ETH_HLEN > data_end)
@@ -50,7 +50,7 @@ get_tuple(struct __sk_buff *skb, struct bpf_sock_tuple *sock_tuple, struct connt
         return -11;
     }
     if (*is_ipv6 && version != 6) {
-        //bpf_printk("[IPv6] --- version:%d", version);
+        bpf_printk("[IPv6] --- version:%d", version);
         return -12;
     } else if (*is_ipv4 && version != 4) {
         //bpf_printk("[IPv4] --- version:%d!=%d", version, 4);
