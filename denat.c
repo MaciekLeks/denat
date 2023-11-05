@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <malloc.h>
 #include <arpa/inet.h>
+#include <inttypes.h> // PRIx32
 #include "commons.h"
 #include "denat.skel.h"
 
@@ -181,10 +182,9 @@ int store_config(const struct denat_bpf *obj, const char *proxy_daddr_in, unsign
             fprintf(stderr, "Error: Invalid IPv6 address format\n");
             return -1;
         }
-        // Copy the IPv6 address to edge structure (assuming g_naddr and d_naddr are large enough)
         memcpy(edge->d_naddr, &addr6, sizeof(addr6));
-        memset(&addr6, 0, sizeof(struct in6_addr));
 
+        memset(&addr6, 0, sizeof(struct in6_addr));
         if (inet_pton(AF_INET6, rt_addr_in, &addr6) != 1) {
             fprintf(stderr, "Error: Invalid IPv6 route address format\n");
             return 1;
@@ -207,7 +207,6 @@ int store_config(const struct denat_bpf *obj, const char *proxy_daddr_in, unsign
         }
         edge->g_naddr[0] = addr4.s_addr;
     }
-
 
 
 

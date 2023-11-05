@@ -16,6 +16,13 @@ You might wonder why it's called "denat," as it's likely not a widely used tool.
 - _libbpf_ installed
 - _iproute2_ package installed
 
+# Features
+- IPv4 Compatibility
+- IPv6 Readiness
+- UDP Support
+- TCP Support
+- Routing Loop Prevention
+
 # Use
 ```bash
 sudo denat -dfproxy=192.168.59.120:10080 -dfports=80
@@ -33,11 +40,8 @@ func-e run -c envoy-config-80.yml
 where [func-e](https://func-e.io/)
 
 # TODO:
-- [ ] prevent routing loops
-- [ ] add support for UDP
-- [ ] add support for IPv6
 - [ ] add support for default policy(e.g. block all except 80,443,8080, or allow to bypass the proxy for other ports)
-- [ ] add verbose flag
+- [ ] add verbose flag and remove all redundant logs
 
 
 

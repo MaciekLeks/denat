@@ -11,11 +11,12 @@ static_resources:
       socket_address:
         protocol: TCP
         #address: 0.0.0.0
-        address: "::"
-        # address: "fe80::800:27ff:fe00:3%vboxnet3"
+        #address: "::"
+        address: "fd0c:41e9:207b:5400:d740:627c:a774:5131"
+        #address: "fe80::800:27ff:fe00:3%vboxnet3"
         #address: 192.168.59.1
         #address: 127.0.0.1
-        port_value: 10080
+        port_value: 11111
     filter_chains:
     - filters:
       - name: envoy.filters.network.http_connection_manager
@@ -57,7 +58,7 @@ static_resources:
                     "@type": type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig
                     resolvers:
                     - socket_address:
-                        address: "8.8.8.8"
+                        address: "127.0.0.54"
                         port_value: 53
                     dns_resolver_options:
                       use_tcp_for_dns_lookups: true
@@ -81,15 +82,16 @@ static_resources:
               "@type": type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig
               resolvers:
               - socket_address:
-                  address: "8.8.8.8"
+                  address: "127.0.0.54"
                   port_value: 53
               dns_resolver_options:
                 use_tcp_for_dns_lookups: true
                 no_default_search_domain: true
-    transport_socket:
-      name: envoy.transport_sockets.tls
-      typed_config:
-        "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
-        common_tls_context:
-          validation_context:
-            trusted_ca: {filename: /etc/ssl/certs/ca-certificates.crt}
+# adding the following lines will cause envoy to force TLS connection on the upstream
+#    transport_socket:
+#      name: envoy.transport_sockets.tls
+#      typed_config:
+#        "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+#        common_tls_context:
+#          validation_context:
+#            trusted_ca: {filename: /etc/ssl/certs/ca-certificates.crt}

@@ -4,7 +4,7 @@
 #include <bpf/bpf_endian.h>
 #include "denat.bpf.h"
 
-#define DEBUG_ALL 1
+
 
 static __always_inline int
 get_tuple(struct __sk_buff *skb, struct bpf_sock_tuple *sock_tuple, struct connt_l2 *l2, __u16 *iphdrl,
@@ -103,10 +103,11 @@ get_tuple(struct __sk_buff *skb, struct bpf_sock_tuple *sock_tuple, struct connt
         if (*is_ipv4) {
             bpf_core_read(&sock_tuple->ipv4.sport, sizeof(sock_tuple->ipv4.sport) + sizeof(sock_tuple->ipv4.dport),
                           &tcp->source);
-            if (DEBUG_ALL)
+#if DEBUG_ALL == 1
                 bpf_printk("sock_tuple: saddr:sport=%x:%x, daddr:dport=%x:%x",
                            sock_tuple->ipv4.saddr, sock_tuple->ipv4.sport,
                            sock_tuple->ipv4.daddr, sock_tuple->ipv4.dport);
+#endif
         } else if (*is_ipv6) {
             bpf_core_read(&sock_tuple->ipv6.sport, sizeof(sock_tuple->ipv6.sport) + sizeof(sock_tuple->ipv4.dport),
                           &tcp->source);
@@ -152,14 +153,15 @@ add_connt(const struct bpf_sock_tuple *sock_tuple, const struct connt_l2 *l2, __
         key.sport = sock_tuple->ipv4.sport;
         val.orig_d_naddr[0] = sock_tuple->ipv4.daddr;
         val.orig_s_naddr[0] = sock_tuple->ipv4.saddr;
+        val.orig_d_nport = sock_tuple->ipv4.dport;
     } else {
         key.sport = sock_tuple->ipv6.sport;
         for (int i = 0; i < 4; i++) {
             val.orig_d_naddr[i] = sock_tuple->ipv6.daddr[i];
             val.orig_s_naddr[i] = sock_tuple->ipv6.saddr[i];
         }
+        val.orig_d_nport = sock_tuple->ipv6.dport;
     }
-    val.orig_d_nport = sock_tuple->ipv4.dport;
     __builtin_memcpy(&val.macs, l2, sizeof(struct connt_l2));
 //    bpf_printk("eth->h_dest:x.%x.%x.%x.%x.%x ", eth->h_dest[1], eth->h_dest[2], eth->h_dest[3], eth->h_dest[4],
 //               eth->h_dest[5]);
@@ -208,7 +210,9 @@ static __always_inline long get_config(struct edge **edge) {
         return -1;
     }
 
+#if DEBUG_ALL == 1
     bpf_printk("ifindx=%d, g_naddr=%d, d_naddr=%d", (*edge)->ifindx, (*edge)->g_naddr[0], (*edge)->d_naddr[0]);
+#endif
     return 0;
 }
 
@@ -226,6 +230,7 @@ return
 true;
 } else {
 bpf_printk("port:%d is not forwarded",
+
 bpf_ntohs(port)
 );
 return
@@ -267,7 +272,7 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
 
 
     //print original_tuple elements
-    if (DEBUG_ALL) {
+#if DEBUG_ALL == 1
         if (is_ipv4) {
             //char src_ip4_buffer[32], dest_ip4_buffer[120];
             //u32_to_ipv4(bpf_ntohl(original_tuple.ipv4.saddr), src_ip4_buffer);
@@ -281,6 +286,7 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
                        original_tuple.ipv6.daddr, original_tuple.ipv6.dport);
         }
     }
+#endif
 
     // return TC_ACT_OK;
 
@@ -306,10 +312,13 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
     __u16 dport = is_ipv4 ? original_tuple.ipv4.dport : (is_ipv6 ? original_tuple.ipv6.dport : 0); //move before egress
 
     if (!is_egress && sport == edge->d_nport) {
+        bpf_printk(">>>in>>>000: port: sport=%d, dport=%d, is_egress=%d, ifindex=%d, is_forwarded:%d", bpf_ntohs(sport),
+                   bpf_ntohs(dport), is_egress,
+                   skb->ifindex, is_forwarded_port(dport));
 
         struct bpf_sock *sk = skb->sk;
         if (sk) {
-            bpf_printk(">>>in>>>:skb->sock->state: %d", sk->state);
+            bpf_printk(">>>>in>>>:skb->sock->state: %d", sk->state);
         }
 
         //!__u32 ifindx = 2; //eno
@@ -322,15 +331,25 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
         //!__u8 new_h_dest[] = {0xa4, 0xbb, 0x6d, 0xd5, 0x94, 0x68}; //a4:bb:6d:d5:94:68 //eno01
         //!__u8 new_h_source[] = {0x0c, 0x41, 0xe9, 0x20, 0x7b, 0x54}; //0c:41:e9:20:7b:54  //router
 
-        __be32 new_net_saddr, new_net_daddr;
+        __be32 *new_net_saddr, *new_net_daddr;
         __u16 new_net_sport;
         struct connt_value *valp = get_connt(&original_tuple, is_ipv4);
         if (valp) {
-            new_net_saddr = valp->orig_d_naddr[0]; //data from e.g. info.cern.ch
-            new_net_daddr = valp->orig_s_naddr[0]; //data to e.g. 192.168.100.2
+            new_net_saddr = valp->orig_d_naddr; //data from e.g. info.cern.ch
+            new_net_daddr = valp->orig_s_naddr; //data to e.g. 192.168.100.2
             new_net_sport = valp->orig_d_nport; //e.g. 80
-            bpf_printk("valp->ifindx:%d, new_net_saddr:%x new_net_daddr:%x, for port:%d", valp->ifindx, new_net_saddr,
-                       new_net_daddr, original_tuple.ipv4.dport);
+            bpf_printk(">>>>>>new_net_sport: %d\n", bpf_ntohs(new_net_sport));
+            //if (DEBUG_ALL) {
+                if (is_ipv4) {
+                    bpf_printk("valp->ifindx:%d, new_net_saddr[0]:%x new_net_daddr[0]:%x, for port:%d", valp->ifindx,
+                               *new_net_saddr,
+                               *new_net_daddr, original_tuple.ipv4.dport);
+                } else {
+                    bpf_printk("valp->ifindx:%d, new_net_saddr[0]:%x new_net_daddr[0]:%x, for port:%d", valp->ifindx,
+                               *new_net_saddr,
+                               *new_net_daddr, original_tuple.ipv6.dport);
+                }
+            //}
         } else {
             bpf_printk("valp is null for port:%d", bpf_ntohs(original_tuple.ipv4.dport));
             return TC_ACT_SHOT;
@@ -387,7 +406,7 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
             return TC_ACT_SHOT;
         }
 
-        ret = rewrite_addr(skb, iphdrl, new_net_saddr, 0);
+        ret = rewrite_addr(skb, iphdrl, is_ipv4, new_net_saddr, 0);
         if (ret < 0) {
             bpf_printk("[ingress] rewrite saddr error: %d", ret);
             return TC_ACT_SHOT;
@@ -399,7 +418,7 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
             return TC_ACT_SHOT;
         }
 
-        ret = rewrite_addr(skb, iphdrl, new_net_daddr, 1);
+        ret = rewrite_addr(skb, iphdrl, is_ipv4, new_net_daddr, 1);
         if (ret < 0) {
             bpf_printk("[ingress] rewrite daddr error: %d", ret);
             return TC_ACT_SHOT;
@@ -417,7 +436,7 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
     // __u16 dport = is_ipv4 ? original_tuple.ipv4.dport : (is_ipv6 ? original_tuple.ipv6.dport : 0); //move before egress
     //if (is_egress && dport == bpf_htons(80)) {
     if (is_egress && is_forwarded_port(dport)) {
-        bpf_printk("port: sport=%d, dport=%d, is_egress=%d, ifindex=%d, is_forwarded:%d", bpf_ntohs(sport),
+        bpf_printk("<<<out<<<000: port: sport=%d, dport=%d, is_egress=%d, ifindex=%d, is_forwarded:%d", bpf_ntohs(sport),
                    bpf_ntohs(dport), is_egress,
                    skb->ifindex, is_forwarded_port(dport));
         //__u32 ifindx = 1; //local loopback
@@ -432,12 +451,13 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
         //__u32 new_saddr = 0xc0a86402; //192.168.100.2 (host)
 
         //long ret = rewrite_addr(skb, iphdrl, new_daddr, 1);
-        ret = rewrite_addr(skb, iphdrl, edge->d_naddr[0], 1);
+        ret = rewrite_addr(skb, iphdrl, is_ipv4, edge->d_naddr, 1);
         if (ret < 0) {
             bpf_printk("rewrite daddr error: %d", ret);
             return TC_ACT_SHOT;
         }
 
+        bpf_printk("<<<out<<<000: rewrite dport: %d", bpf_ntohs(edge->d_nport));
         ret = rewrite_port(skb, iphdrl, edge->d_nport, 1);
         if (ret < 0) {
             bpf_printk("rewrite dport error: %d", ret);
@@ -445,7 +465,7 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
         }
 
         //ret = rewrite_addr(skb, iphdrl, new_saddr, 0);
-        ret = rewrite_addr(skb, iphdrl, edge->g_naddr[0], 0);
+        ret = rewrite_addr(skb, iphdrl, is_ipv4, edge->g_naddr, 0);
         if (ret < 0) {
             bpf_printk("rewrite saddr error: %d", ret);
             return TC_ACT_SHOT;

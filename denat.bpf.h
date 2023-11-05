@@ -2,6 +2,7 @@
 //#include <linux/if_ether.h>
 //#include <linux/ip.h>
 #include "commons.h"
+#include "vmlinux.h"
 
 //{from <linux/pkt_cls.h>
 #define TC_ACT_UNSPEC    (-1)
@@ -18,8 +19,8 @@
 //}
 
 //<netinet/in.h>
-#define AF_INET		2	/* IP protocol family.  */
-#define AF_INET6	10	/* IP version 6.  */
+#define AF_INET        2    /* IP protocol family.  */
+#define AF_INET6    10    /* IP version 6.  */
 //<netinet/in.h>}
 
 //{from linux/if_ether.h
@@ -43,29 +44,38 @@
 //};
 //
 
+#define DEBUG_ALL 0
+
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __type(key, __u32);
-    __type(value, struct edge);
+    __type(value,
+    struct edge);
     __uint(max_entries, 2);
     __uint(pinning, LIBBPF_PIN_BY_NAME);
-} config_map SEC(".maps");
+} config_map
+SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, struct forwarded_port);
+    __type(key,
+    struct forwarded_port);
     __type(value, __u32);
     __uint(max_entries, 256);
     //__uint(pinning, LIBBPF_PIN_BY_NAME);
-} forwarded_port_map SEC(".maps");
+} forwarded_port_map
+SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, struct connt_key);
-    __type(value, struct connt_value);
+    __type(key,
+    struct connt_key);
+    __type(value,
+    struct connt_value);
     __uint(max_entries, MAX_L4_CONNTACK_ENTRIES);
     __uint(pinning, LIBBPF_PIN_BY_NAME);
-} connt_map SEC(".maps");
+} connt_map
+SEC(".maps");
 
 
 //{addons
@@ -96,8 +106,8 @@ static __always_inline void ipv4_print_ip(char *prefix, char *suffix, __u32 ip) 
 //    be32_to_ipv4((ip_value), _ip_buffer); \
 //    _ip_buffer; \
 //})
-
-static char* be32_to_ipv4(__be32 ip_value, char *ip_buffer) {
+#if DEBUG_ALL == 1
+static char *be32_to_ipv4(__be32 ip_value, char *ip_buffer) {
     __u64 ip_data[4];
 
     ip_data[3] = ((__u64) (ip_value >> 24) & 0xFF);
@@ -110,6 +120,7 @@ static char* be32_to_ipv4(__be32 ip_value, char *ip_buffer) {
     bpf_snprintf(ip_buffer, 16, "%d.%d.%d.%d", ip_data, 4 * sizeof(__u64));
     return ip_buffer;
 }
+#endif
 
 #define BE32_TO_IPV4(ip_value) ({ \
     be32_to_ipv4((ip_value), (char [32]){}); \
@@ -125,7 +136,7 @@ static __always_inline long rewrite_mac(struct __sk_buff *skb, __u8 *mac, bool d
     if (dest)
         return bpf_skb_store_bytes(skb, L2_MEMBER_OFF(h_dest), mac, 6, 0);
     else
-        return bpf_skb_store_bytes(skb, L2_MEMBER_OFF(h_source), mac, 6, 0);
+    return bpf_skb_store_bytes(skb, L2_MEMBER_OFF(h_source), mac, 6, 0);
 }
 
 #define L3_CSUM_OFF(proto) \
@@ -140,86 +151,246 @@ static __always_inline long rewrite_mac(struct __sk_buff *skb, __u8 *mac, bool d
    (ETH_HLEN + iphdrl + offsetof(struct proto ## hdr, member))
 
 
-static inline long rewrite_addr(struct __sk_buff *skb, int iphdrl, __be32 new_net_addr, int rw_daddr) {
+//static inline long rewrite_addr(struct __sk_buff *skb, int iphdrl, __be32 new_net_addr, int rw_daddr) {
+//    long ret;
+//    int off = 0, flags = BPF_F_PSEUDO_HDR;
+//    __u8 proto;
+//
+//    ret = bpf_skb_load_bytes(skb, L3_MEMBER_OFF(ip, protocol), &proto, 1);
+//    if (ret < 0) {
+//        bpf_printk("bpf_l4_csum_replace failed: %d\n", ret);
+//        return ret;
+//    }
+//
+//    switch (proto) {
+//        case IPPROTO_TCP:
+//            off = L4_CSUM_OFF(iphdrl, tcp);
+//            break;
+//
+//        case IPPROTO_UDP:
+//            off = L4_CSUM_OFF(iphdrl, udp);
+//            flags |= BPF_F_MARK_MANGLED_0;
+//            break;
+//    }
+//
+//    __be32 old_net_addr = 0;
+//    if (off) {
+//
+//        // load old addr
+//        if (rw_daddr) {
+//            ret = bpf_skb_load_bytes(skb, L3_MEMBER_OFF(ip, daddr), &old_net_addr, sizeof(old_net_addr));
+//        } else {
+//            ret = bpf_skb_load_bytes(skb, L3_MEMBER_OFF(ip, saddr), &old_net_addr, sizeof(old_net_addr));
+//        }
+//
+//        if (ret < 0) {
+//            bpf_printk("bpf_skb_load_bytes([daddr|saddr]) error: %d", ret);
+//            return ret;
+//        }
+//
+//        if (ret < 0) {
+//            bpf_printk("bpf_skb_load_bytes([dest|source]) error: %d", ret);
+//            return ret;
+//        }
+//
+//        bpf_printk("rw_daddr:%d, proto: %d, old_addr: %d, new_addr:%d, iphdrl:%d", rw_daddr, proto, old_net_addr,
+//                   new_net_addr, iphdrl);
+//        ipv4_print_ip("--- old addr", "", old_net_addr);
+//        ipv4_print_ip("--- new addr", "", new_net_addr);
+//
+//        //__wsum diff = bpf_csum_diff((void *)&old_net_addr , sizeof(old_net_addr),(void *)&new_net_addr, sizeof (new_net_addr),  0);
+//        ret = bpf_l4_csum_replace(skb, off, old_net_addr, new_net_addr, flags | sizeof(new_net_addr));
+//        //ret = bpf_l4_csum_replace(skb, off, 0, diff,flags | sizeof(new_net_addr));
+//        if (ret < 0) {
+//            bpf_printk("bpf_l4_csum_replace failed fot new_net_addr: %d\n");
+//            return ret;
+//        }
+//    }
+//
+//    ret = bpf_l3_csum_replace(skb, L3_CSUM_OFF(ip), old_net_addr, new_net_addr, sizeof(new_net_addr));
+//    if (ret < 0) {
+//        bpf_printk("bpf_l3_csum_replace failed: %d\n", ret);
+//        return ret;
+//    }
+//
+//    if (rw_daddr)
+//        ret = bpf_skb_store_bytes(skb, L3_MEMBER_OFF(ip, daddr), &new_net_addr, sizeof(new_net_addr),
+//                /*BPF_F_RECOMPUTE_CSUM*/0);
+//    else
+//        ret = bpf_skb_store_bytes(skb, L3_MEMBER_OFF(ip, saddr), &new_net_addr, sizeof(new_net_addr),
+//                /*BPF_F_RECOMPUTE_CSUM*/0);
+//
+//    if (ret < 0) {
+//        bpf_printk("bpf_skb_store_bytes() failed for new_net_addr: %d\n", ret);
+//        return ret;
+//    }
+//
+//    return ret;
+//}
+static inline long
+rewrite_addr(struct __sk_buff *skb, int iphdrl, bool is_ipv4, __be32 *new_net_addr, int rw_daddr) {
     long ret;
-    int off = 0, flags = BPF_F_PSEUDO_HDR;
+    int off, flags = BPF_F_PSEUDO_HDR;
     __u8 proto;
 
-    ret = bpf_skb_load_bytes(skb, L3_MEMBER_OFF(ip, protocol), &proto, 1);
-    if (ret < 0) {
-        bpf_printk("bpf_l4_csum_replace failed: %d\n", ret);
-        return ret;
+//    ret = bpf_skb_load_bytes(skb, L3_MEMBER_OFF(ip, protocol), &proto, 1);
+//    if (ret < 0) {
+//        bpf_printk("bpf_l4_csum_replace failed: %d\n", ret);
+//        return ret;
+//    }
+    if (is_ipv4) {
+        ret = bpf_skb_load_bytes(skb, L3_MEMBER_OFF(ip, protocol), &proto, 1);
+        if (ret < 0) return ret;
+    } else {
+        ret = bpf_skb_load_bytes(skb, L3_MEMBER_OFF(ipv6, nexthdr), &proto, 1);
+        if (ret < 0) return ret;
     }
 
-    switch (proto) {
-        case IPPROTO_TCP:
-            off = L4_CSUM_OFF(iphdrl, tcp);
-            break;
-
-        case IPPROTO_UDP:
-            off = L4_CSUM_OFF(iphdrl, udp);
-            flags |= BPF_F_MARK_MANGLED_0;
-            break;
+//    switch (proto) {
+//        case IPPROTO_TCP:
+//            off = L4_CSUM_OFF(iphdrl, tcp);
+//            break;
+//
+//        case IPPROTO_UDP:
+//            off = L4_CSUM_OFF(iphdrl, udp);
+//            flags |= BPF_F_MARK_MANGLED_0;
+//            break;
+//    }
+    if (proto == IPPROTO_TCP) {
+        off = L4_CSUM_OFF(iphdrl, tcp);
+    } else if (proto == IPPROTO_UDP) {
+        off = L4_CSUM_OFF(iphdrl, udp);
+        flags |= BPF_F_MARK_MANGLED_0;
+    } else {
+        off = 0;
     }
 
-    __be32 old_net_addr = 0;
+
+//    __be32 old_net_addr = 0;
+//    if (off) {
+//
+//        // load old addr
+//        if (rw_daddr) {
+//            ret = bpf_skb_load_bytes(skb, L3_MEMBER_OFF(ip, daddr), &old_net_addr, sizeof(old_net_addr));
+//        } else {
+//            ret = bpf_skb_load_bytes(skb, L3_MEMBER_OFF(ip, saddr), &old_net_addr, sizeof(old_net_addr));
+//        }
+//
+//        if (ret < 0) {
+//            bpf_printk("bpf_skb_load_bytes([daddr|saddr]) error: %d", ret);
+//            return ret;
+//        }
+//
+//        if (ret < 0) {
+//            bpf_printk("bpf_skb_load_bytes([dest|source]) error: %d", ret);
+//            return ret;
+//        }
+//
+//        bpf_printk("rw_daddr:%d, proto: %d, old_addr: %d, new_addr:%d, iphdrl:%d", rw_daddr, proto, old_net_addr,
+//                   new_net_addr, iphdrl);
+//        ipv4_print_ip("--- old addr", "", old_net_addr);
+//        ipv4_print_ip("--- new addr", "", new_net_addr);
+//
+//        //__wsum diff = bpf_csum_diff((void *)&old_net_addr , sizeof(old_net_addr),(void *)&new_net_addr, sizeof (new_net_addr),  0);
+//        ret = bpf_l4_csum_replace(skb, off, old_net_addr, new_net_addr, flags | sizeof(new_net_addr));
+//        //ret = bpf_l4_csum_replace(skb, off, 0, diff,flags | sizeof(new_net_addr));
+//        if (ret < 0) {
+//            bpf_printk("bpf_l4_csum_replace failed fot new_net_addr: %d\n");
+//            return ret;
+//        }
+//    }
+//
+//    ret = bpf_l3_csum_replace(skb, L3_CSUM_OFF(ip), old_net_addr, new_net_addr, sizeof(new_net_addr));
+//    if (ret < 0) {
+//        bpf_printk("bpf_l3_csum_replace failed: %d\n", ret);
+//        return ret;
+//    }
+//
+//    if (rw_daddr)
+//        ret = bpf_skb_store_bytes(skb, L3_MEMBER_OFF(ip, daddr), &new_net_addr, sizeof(new_net_addr),
+//            /*BPF_F_RECOMPUTE_CSUM*/0);
+//    else
+//    ret = bpf_skb_store_bytes(skb, L3_MEMBER_OFF(ip, saddr), &new_net_addr, sizeof(new_net_addr),
+//            /*BPF_F_RECOMPUTE_CSUM*/0);
+//
+//    if (ret < 0) {
+//        bpf_printk("bpf_skb_store_bytes() failed for new_net_addr: %d\n", ret);
+//        return ret;
+//    }
+//
+//    return ret;
+
     if (off) {
+        if (is_ipv4) {
+            struct in_addr old_net_addr = {0};
+            if (rw_daddr) {
+                ret = bpf_skb_load_bytes(skb, L3_MEMBER_OFF(ip,
+                                                            daddr), &old_net_addr.s_addr, sizeof(old_net_addr.s_addr));
+                if (ret < 0) return ret;
+            } else {
+                ret = bpf_skb_load_bytes(skb, L3_MEMBER_OFF(ip,
+                                                            saddr), &old_net_addr.s_addr, sizeof(old_net_addr.s_addr));
+                if (ret < 0) return ret;
+            }
 
-        // load old addr
-        if (rw_daddr) {
-            ret = bpf_skb_load_bytes(skb, L3_MEMBER_OFF(ip, daddr), &old_net_addr, sizeof(old_net_addr));
+            ret = bpf_l4_csum_replace(skb, off, old_net_addr.s_addr, *new_net_addr,
+                                      flags | sizeof(old_net_addr.s_addr));
+            if (ret < 0) return ret;
+
+            ret = bpf_l3_csum_replace(skb, L3_CSUM_OFF(
+                    ip), old_net_addr.s_addr, *new_net_addr, sizeof(old_net_addr.s_addr));
+            if (ret < 0) return ret;
+
+            if (rw_daddr) {
+                ret = bpf_skb_store_bytes(skb, L3_MEMBER_OFF(ip, daddr), new_net_addr, sizeof(old_net_addr.s_addr), 0);
+                if (ret < 0) return ret;
+            } else {
+                ret = bpf_skb_store_bytes(skb, L3_MEMBER_OFF(ip, saddr), new_net_addr, sizeof(old_net_addr.s_addr), 0);
+                if (ret < 0) return ret;
+            }
         } else {
-            ret = bpf_skb_load_bytes(skb, L3_MEMBER_OFF(ip, saddr), &old_net_addr, sizeof(old_net_addr));
-        }
+            struct in6_addr old_net_addr;
 
-        if (ret < 0) {
-            bpf_printk("bpf_skb_load_bytes([daddr|saddr]) error: %d", ret);
-            return ret;
-        }
+            //bpf_printk("ipv6[rewrite_addr]: 1");
+            if (rw_daddr) {
+                ret = bpf_skb_load_bytes(skb, L3_MEMBER_OFF(ipv6,
+                                                            daddr), &old_net_addr.in6_u, sizeof(old_net_addr.in6_u));
+                if (ret < 0) return ret;
+            } else {
+                ret = bpf_skb_load_bytes(skb, L3_MEMBER_OFF(ipv6,
+                                                            saddr), &old_net_addr.in6_u, sizeof(old_net_addr.in6_u));
+                if (ret < 0) return ret;
+            }
 
-        if (ret < 0) {
-            bpf_printk("bpf_skb_load_bytes([dest|source]) error: %d", ret);
-            return ret;
-        }
+            //bpf_printk("ipv6[rewrite_addr]: 2");
+            __wsum diff = bpf_csum_diff((void *) &old_net_addr.in6_u, sizeof(old_net_addr.in6_u),
+                                        (void *) new_net_addr,
+                                        sizeof(old_net_addr.in6_u), 0);
+            ret = bpf_l4_csum_replace(skb, off, 0, diff, flags | 0);
+            if (ret < 0) return ret;
 
-        bpf_printk("rw_daddr:%d, proto: %d, old_addr: %d, new_addr:%d, iphdrl:%d", rw_daddr, proto, old_net_addr,
-                   new_net_addr, iphdrl);
-        ipv4_print_ip("--- old addr", "", old_net_addr);
-        ipv4_print_ip("--- new addr", "", new_net_addr);
+            //bpf_printk("ipv6[rewrite_addr]: 3");
+            if (rw_daddr) {
+                ret = bpf_skb_store_bytes(skb, L3_MEMBER_OFF(ipv6,
+                                                             daddr), new_net_addr, sizeof(old_net_addr.in6_u), 0/*BPF_F_RECOMPUTE_CSUM*/);
+                if (ret < 0) return ret;
+            } else {
+                ret = bpf_skb_store_bytes(skb, L3_MEMBER_OFF(ipv6,
+                                                             saddr), new_net_addr, sizeof(old_net_addr.in6_u), 0/*BPF_F_RECOMPUTE_CSUM*/);
+                if (ret < 0) return ret;
+            }
 
-        //__wsum diff = bpf_csum_diff((void *)&old_net_addr , sizeof(old_net_addr),(void *)&new_net_addr, sizeof (new_net_addr),  0);
-        ret = bpf_l4_csum_replace(skb, off, old_net_addr, new_net_addr, flags | sizeof(new_net_addr));
-        //ret = bpf_l4_csum_replace(skb, off, 0, diff,flags | sizeof(new_net_addr));
-        if (ret < 0) {
-            bpf_printk("bpf_l4_csum_replace failed fot new_net_addr: %d\n");
-            return ret;
+            bpf_printk("ipv6[rewrite_addr]: 4");
         }
     }
 
-    ret = bpf_l3_csum_replace(skb, L3_CSUM_OFF(ip), old_net_addr, new_net_addr, sizeof(new_net_addr));
-    if (ret < 0) {
-        bpf_printk("bpf_l3_csum_replace failed: %d\n", ret);
-        return ret;
-    }
-
-    if (rw_daddr)
-        ret = bpf_skb_store_bytes(skb, L3_MEMBER_OFF(ip, daddr), &new_net_addr, sizeof(new_net_addr),
-                /*BPF_F_RECOMPUTE_CSUM*/0);
-    else
-        ret = bpf_skb_store_bytes(skb, L3_MEMBER_OFF(ip, saddr), &new_net_addr, sizeof(new_net_addr),
-                /*BPF_F_RECOMPUTE_CSUM*/0);
-
-    if (ret < 0) {
-        bpf_printk("bpf_skb_store_bytes() failed for new_net_addr: %d\n", ret);
-        return ret;
-    }
-
-    return ret;
+    return 0;
 }
+
 
 static inline long rewrite_port(struct __sk_buff *skb, int iphdrl, __be16 new_net_port, int rw_daddr) {
     long ret;
-    int off = 0, flags = 0;
+    int off, flags = 0;
     __u8 proto;
 
     ret = bpf_skb_load_bytes(skb, L3_MEMBER_OFF(ip, protocol), &proto, 1);
@@ -228,15 +399,13 @@ static inline long rewrite_port(struct __sk_buff *skb, int iphdrl, __be16 new_ne
         return ret;
     }
 
-    switch (proto) {
-        case IPPROTO_TCP:
-            off = L4_CSUM_OFF(iphdrl, tcp);
-            break;
-
-        case IPPROTO_UDP:
-            off = L4_CSUM_OFF(iphdrl, udp);
-            flags |= BPF_F_MARK_MANGLED_0;
-            break;
+    if (proto == IPPROTO_TCP) {
+        off = L4_CSUM_OFF(iphdrl, tcp);
+    } else if (proto == IPPROTO_UDP) {
+        off = L4_CSUM_OFF(iphdrl, udp);
+        flags |= BPF_F_MARK_MANGLED_0;
+    } else {
+        off = 0;
     }
 
     __be16 old_net_port = 0;
@@ -245,10 +414,10 @@ static inline long rewrite_port(struct __sk_buff *skb, int iphdrl, __be16 new_ne
         // load port
         if (rw_daddr) {
             ret = bpf_skb_load_bytes(skb, L4_MEMBER_OFF(iphdrl, tcp, dest), &old_net_port,
-                                     sizeof(old_net_port));
+                    sizeof(old_net_port));
         } else {
             ret = bpf_skb_load_bytes(skb, L4_MEMBER_OFF(iphdrl, tcp, source), &old_net_port,
-                                     sizeof(old_net_port));
+                    sizeof(old_net_port));
         }
 
         if (ret < 0) {
@@ -265,14 +434,15 @@ static inline long rewrite_port(struct __sk_buff *skb, int iphdrl, __be16 new_ne
         }
     }
 
-    if (rw_daddr)
+    if (rw_daddr) {
         ret = bpf_skb_store_bytes(skb, L4_MEMBER_OFF(iphdrl, tcp, dest), &new_net_port,
-                                  sizeof(new_net_port),
+                sizeof(new_net_port),
                 /*BPF_F_RECOMPUTE_CSUM*/0);
-    else
+    } else {
         ret = bpf_skb_store_bytes(skb, L4_MEMBER_OFF(iphdrl, tcp, source), &new_net_port,
-                                  sizeof(new_net_port),
+                sizeof(new_net_port),
                 /*BPF_F_RECOMPUTE_CSUM*/0);
+    }
 
     if (ret < 0) {
         bpf_printk("bpf_skb_store_bytes failed for new_net_port: %d\n", ret);
