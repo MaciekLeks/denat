@@ -48,6 +48,7 @@ func-e run -c envoy-config-80.yml
 where [func-e](https://func-e.io/)
 
 # TODO:
+- [ ] prevent loops in routing on the same machine
 - [ ] add support for default policy(e.g. block all except 80,443,8080, or allow to bypass the proxy for other ports)
 - [ ] add verbose flag and remove all redundant logs
 

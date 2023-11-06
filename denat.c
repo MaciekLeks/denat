@@ -144,6 +144,7 @@ int get_default_eggress_iface(bool ipv6_only, char *iface) {
  * @return the interface index on success, -1 on error
  */
 int get_ifindex(const char *iface) {
+    printf("Info: get_ifindex for iface: %s\n", iface);
     int ifindx = if_nametoindex(iface); //e.g. f(vboxnet3) -> 192.168.59.1
     if (!ifindx) {
         fprintf(stderr, "Error: Failed to get ifindx of %s: %s\n", iface, strerror(errno));
@@ -237,13 +238,20 @@ int store_config(const struct denat_bpf *obj, const char *proxy_daddr_in, unsign
     int ret = get_hop_info(proxy_daddr_in, rt_ifname, rt_addr_in);
     if (ret) {
         fprintf(stderr, "Error: Failed to get hop info\n");
-        return 1;
+        return -1;
     }
 
-    int ifindx = if_nametoindex(rt_ifname); //e.g. f(vboxnet3) -> 192.168.59.1
-    if (!ifindx) {
+    // get ifindex of rt_ifname
+    int ifindx = get_ifindex(rt_ifname); //e.g. f(vboxnet3) -> 192.168.59.1
+    if (ifindx < 0) {
         fprintf(stderr, "Error: Failed to get ifindx of %s: %s\n", rt_ifname, strerror(errno));
+        return -1;
     }
+
+//    int ifindx = if_nametoindex(rt_ifname);
+//    if (!ifindx) {
+//        fprintf(stderr, "Error: Failed to get ifindx of %s: %s\n", rt_ifname, strerror(errno));
+//    }
 
     //convert presentation to numeric using inet_pton for rt_addr_in
 //    struct in_addr gaddr, daddr;

@@ -11,7 +11,8 @@ static_resources:
         socket_address:
           protocol: TCP
           #address: 192.168.59.120
-          address: 192.168.59.1
+          #address: 192.168.59.1
+          address: 192.168.100.2
           port_value: 11111
       listener_filters:
         - name: envoy.filters.listener.tls_inspector

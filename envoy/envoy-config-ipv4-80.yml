@@ -10,12 +10,8 @@ static_resources:
     address:
       socket_address:
         protocol: TCP
-        #address: 0.0.0.0
-        #address: "::"
-        address: "fd0c:41e9:207b:5400:d740:627c:a774:5131"
-        #address: "fe80::800:27ff:fe00:3%vboxnet3"
         #address: 192.168.59.1
-        #address: 127.0.0.1
+        address: 127.0.0.1
         port_value: 11111
     filter_chains:
     - filters:
