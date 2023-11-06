@@ -20,6 +20,7 @@ You might wonder why it's called "denat," as it's likely not a widely used tool.
 - IPv4 Compatibility
 - IPv6 Readiness
 - TCP Support
+- UDP Support
 - Routing Loop Prevention
 
 # Use
@@ -41,7 +42,6 @@ where [func-e](https://func-e.io/)
 # TODO:
 - [ ] add support for default policy(e.g. block all except 80,443,8080, or allow to bypass the proxy for other ports)
 - [ ] add verbose flag and remove all redundant logs
-- [ ] UDP support
 
 
 
