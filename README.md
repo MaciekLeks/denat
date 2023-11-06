@@ -28,7 +28,7 @@ You might wonder why it's called "denat," as it's likely not a widely used tool.
 sudo denat -dfproxy=192.168.59.120:10080 -dfports=80
 ```
 where: 
-- `pfproxy` is the L4 proxy address to which the packets will be redirected
+- `dfproxy` is the L4 proxy address to which the packets will be redirected
 - `dfports` is the list of ports to which the packets will be redirected, e.g. `80,443,8080`
 
 To use it with envoy config:
