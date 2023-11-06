@@ -25,7 +25,7 @@ You might wonder why it's called "denat," as it's likely not a widely used tool.
 
 # Use
 ```bash
-sudo denat -dfproxy=192.168.59.120:10080 -dfports=80
+sudo denat -dfproxy=192.168.59.120:11111 -dfports=80
 ```
 where: 
 - `dfproxy` is the L4 proxy address to which the packets will be redirected
