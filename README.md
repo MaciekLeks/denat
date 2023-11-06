@@ -23,10 +23,18 @@ You might wonder why it's called "denat," as it's likely not a widely used tool.
 - UDP Support
 - Routing Loop Prevention
 
-# Use
+# 
+# Examples
+IPv4:
 ```bash
 sudo denat -dfproxy=192.168.59.120:11111 -dfports=80
 ```
+IPv6:
+```bash
+sudo denat -dfproxy=[fd0c:41e9:207b:5400:d740:627c:a774:5131]:11111 -dfports=80,443
+```
+
+
 where: 
 - `dfproxy` is the L4 proxy address to which the packets will be redirected
 - `dfports` is the list of ports to which the packets will be redirected, e.g. `80,443,8080`

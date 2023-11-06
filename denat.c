@@ -294,44 +294,6 @@ void parse_args(int argc, char *argv[], char **ip_address, int *proxy_port, unsi
     }
 }
 
-
-//void parse_args(int argc, char *argv[], char **ip_address, int *proxy_port, unsigned int **port_list, int *num_ports) {
-//    for (int i = 1; i < argc; i++) {
-//        if (strncmp(argv[i], "-dfproxy=", 9) == 0) {
-//            char *proxy_str = strchr(argv[i], '=') + 1;
-//            char *colon = strchr(proxy_str, ':');
-//            if (colon != NULL) {
-//                *colon = '\0';
-//                *ip_address = proxy_str;
-//                if (colon[1] != '\0' && strlen(colon + 1) > 0) {
-//                    *proxy_port = strtoul(colon + 1, NULL, 10);
-//                } else {
-//                    fprintf(stderr, "Error: Port number format error\n");
-//                    exit(1);
-//                }
-//            } else {
-//                fprintf(stderr, "Error: Wrong proxy IP and port number format\n");
-//                exit(1);
-//            }
-//        } else if (strncmp(argv[i], "-dfports=", 9) == 0) {
-//            char *ports_str = strchr(argv[i], '=') + 1;
-//            char *token = strtok(ports_str, ",");
-//            while (token != NULL) {
-//                if (strlen(token) > 0) {
-//                    (*num_ports)++;
-//                    *port_list = realloc(*port_list, (*num_ports) * sizeof(int));
-//                    (*port_list)[(*num_ports) - 1] = strtoul(token, NULL, 10);
-//                } else {
-//                    fprintf(stderr, "Error: Wrong port list format\n");
-//                    exit(1);
-//                }
-//                token = strtok(NULL, ",");
-//            }
-//        }
-//    }
-//}
-
-
 int main(int argc, char *argv[]) {
     char *proxy_ip_address = NULL;
     int proxy_port = 0;
