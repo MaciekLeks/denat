@@ -37,7 +37,7 @@ sudo denat -dfproxy=[fd0c:41e9:207b:5400:d740:627c:a774:5131]:11111 -dfports=80,
 
 where: 
 - `dfproxy` is the L4 proxy address to which the packets will be redirected
-- `dfports` is the list of ports to which the packets will be redirected, e.g. `80,443,8080`
+- `dfports` is the list of ports to redirect, e.g. `80,443,8080`
 
 To use it with envoy config:
 On 192.168.59.120 I run:
