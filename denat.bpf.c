@@ -412,7 +412,7 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
             return TC_ACT_SHOT;
         }
 
-        ret = rewrite_port(skb, iphdrl, new_net_sport, 0);
+        ret = rewrite_port(skb, iphdrl, is_tcp, is_udp, new_net_sport, 0);
         if (ret < 0) {
             bpf_printk("[ingress] rewrite sport error: %d", ret);
             return TC_ACT_SHOT;
@@ -458,7 +458,7 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
         }
 
         bpf_printk("<<<out<<<000: rewrite dport: %d", bpf_ntohs(edge->d_nport));
-        ret = rewrite_port(skb, iphdrl, edge->d_nport, 1);
+        ret = rewrite_port(skb, iphdrl, is_tcp, is_udp, edge->d_nport, 1);
         if (ret < 0) {
             bpf_printk("rewrite dport error: %d", ret);
             return TC_ACT_SHOT;
@@ -473,23 +473,6 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
 
         struct bpf_sock *sk = skb->sk;
         if (sk) {
-            /* enum {
-                    BPF_TCP_ESTABLISHED = 1,
-                    BPF_TCP_SYN_SENT = 2,
-                    BPF_TCP_SYN_RECV = 3,
-                    BPF_TCP_FIN_WAIT1 = 4,
-                    BPF_TCP_FIN_WAIT2 = 5,
-                    BPF_TCP_TIME_WAIT = 6,
-                    BPF_TCP_CLOSE = 7,
-                    BPF_TCP_CLOSE_WAIT = 8,
-                    BPF_TCP_LAST_ACK = 9,
-                    BPF_TCP_LISTEN = 10,
-                    BPF_TCP_CLOSING = 11,
-                    BPF_TCP_NEW_SYN_RECV = 12,
-                    BPF_TCP_MAX_STATES = 13,
-                };
-             */
-            //sport = is_ipv4 ? sk->src_port : (is_ipv6 ? sk->src_port : 0);
             sport = is_ipv4 ? original_tuple.ipv4.sport : (is_ipv6 ? original_tuple.ipv6.sport : 0);
             switch (sk->state) {
                 case BPF_TCP_ESTABLISHED:
@@ -545,14 +528,10 @@ process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/
             }
         }
 
-
-        //ret = bpf_redirect_neigh(edge->ifindx, 0, 0, 0); //bpf_reditect_neigh does not work
         ret = bpf_redirect_neigh(edge->ifindx, 0, 0, 0); //bpf_reditect_neigh does not work
         bpf_printk("[egress]bpf_redirect_neigh: %d", ret);
 
-
         return (int) ret;
-
     }
 
     return TC_ACT_OK;
