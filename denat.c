@@ -57,7 +57,8 @@ struct hook_err {
 // Simplified method to get hop interface namme and inet address of that interface
 int get_hop_info(const char *addr_in, char *iface, char *rt_addr_in) {
     char command[128];
-    sprintf(command, "ip route get %s", addr_in);
+    // use absolute path to ip command to mitigate PATH changes by an attacker (execle/execve used in popen)
+    sprintf(command, "/usr/bin/ip route get %s", addr_in);
 
     FILE *fp = popen(command, "r");
     if (fp == NULL) {
@@ -90,6 +91,84 @@ int get_hop_info(const char *addr_in, char *iface, char *rt_addr_in) {
     pclose(fp);
     return 1;
 }
+
+/*
+ * Get the default egress interface name.
+ *
+ * @param ipv6_only: if true, only return an IPv6 interface
+ * @param iface: the interface name will be stored here
+ * @return 0 on success, -1 on error
+ */
+int get_default_eggress_iface(bool ipv6_only, char *iface) {
+    char command[128];
+    char ipv6_toggle[2] = {0};
+
+    if (ipv6_only) {
+        ipv6_only = "-6";
+    }
+    // use absolute path to ip command to mitigate PATH changes by an attacker (execle/execve used in popen)
+    sprintf(command, "/usr/bin/ip %s show default", ipv6_toggle);
+
+    FILE *fp = popen(command, "r");
+    if (fp == NULL) {
+        perror("ip route show default error");
+        return 1;
+    }
+
+    char buffer[256];
+    char *dev_start = NULL;
+
+    while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+        dev_start = strstr(buffer, "dev");
+
+        if (dev_start) {
+            dev_start += strlen("dev");
+
+            sscanf(dev_start, "%s", iface);
+
+            printf("Info: config for iface: %s\n", iface);
+
+            pclose(fp);
+            return 0;
+        }
+    }
+
+    pclose(fp);
+    return -1;
+}
+
+/*
+ * Get the interface index of the given interface name.
+ *
+ * @param iface: the interface name
+ * @return the interface index on success, -1 on error
+ */
+int get_ifindex(const char *iface) {
+    int ifindx = if_nametoindex(iface); //e.g. f(vboxnet3) -> 192.168.59.1
+    if (!ifindx) {
+        fprintf(stderr, "Error: Failed to get ifindx of %s: %s\n", iface, strerror(errno));
+        return -1;
+    }
+    return ifindx;
+}
+
+/*
+ * Get the interface index of the default egress interface.
+ *
+ * @param is_ipv6: if true, only return an IPv6 interface
+ * @return the interface index on success, -1 on error
+ */
+int get_default_egress_ifindx(bool is_ipv6) {
+    char iface[128];
+    int ret = get_default_eggress_iface(is_ipv6, iface);
+    if (ret) {
+        fprintf(stderr, "Error: Failed to get default egress interface\n");
+        return -1;
+    }
+
+    return get_ifindex(iface);
+}
+
 
 
 static struct hook_err
@@ -240,10 +319,21 @@ int store_forwarded_ports(const struct denat_bpf *obj, unsigned int ports[], int
     return 0;
 }
 
-
-void parse_args(int argc, char *argv[], char **ip_address, int *proxy_port, unsigned int **port_list, int *num_ports) {
+/*
+ * Parse the command line arguments.
+ *
+ * @param argc: the number of arguments
+ * @param argv: the arguments
+ * @param ip_address: outputs the IP address of the proxy
+ * @param proxy_port: outputs the port of the proxy
+ * @param port_list: outputs the list of forwarded ports
+ * @param num_ports: outputs the number of forwarded ports
+ * @param is_ipv6: outputs true if IP address is IPv6, false for IPv4
+ */
+void parse_args(int argc, char *argv[], char **ip_address, int *proxy_port, unsigned int **port_list, int *num_ports, bool *is_ipv6) {
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "-dfproxy=", 9) == 0) {
+            *is_ipv6 = true;
             char *proxy_str = strchr(argv[i], '=') + 1;
             // Check if IPv6 address format [address]:port
             char *bracket = strchr(proxy_str, '[');
@@ -264,6 +354,7 @@ void parse_args(int argc, char *argv[], char **ip_address, int *proxy_port, unsi
                     exit(1);
                 }
             } else if (colon != NULL) { // IPv4 address format address:port
+                *is_ipv6 = false;
                 *colon = '\0';
                 *ip_address = proxy_str;
                 if (colon[1] != '\0') {
@@ -301,8 +392,9 @@ int main(int argc, char *argv[]) {
     int num_ports = 0;
     struct denat_bpf *obj;
     int err;
+    bool ipv6_only = false;
 
-    parse_args(argc, argv, &proxy_ip_address, &proxy_port, &port_list, &num_ports);
+    parse_args(argc, argv, &proxy_ip_address, &proxy_port, &port_list, &num_ports, &ipv6_only);
 
     // Show args
     if (proxy_ip_address != NULL) {
