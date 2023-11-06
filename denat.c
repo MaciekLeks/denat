@@ -107,7 +107,7 @@ int get_default_eggress_iface(bool ipv6_only, char *iface) {
         ipv6_only = "-6";
     }
     // use absolute path to ip command to mitigate PATH changes by an attacker (execle/execve used in popen)
-    sprintf(command, "/usr/bin/ip %s show default", ipv6_toggle);
+    sprintf(command, "/usr/bin/ip %s route show default", ipv6_toggle);
 
     FILE *fp = popen(command, "r");
     if (fp == NULL) {
@@ -396,6 +396,12 @@ int main(int argc, char *argv[]) {
 
     parse_args(argc, argv, &proxy_ip_address, &proxy_port, &port_list, &num_ports, &ipv6_only);
 
+    int egress_ifindx = get_default_egress_ifindx(ipv6_only);
+    if (egress_ifindx < 0) {
+        fprintf(stderr, "Error: Failed to get default egress interface index\n");
+        return 1;
+    }
+
     // Show args
     if (proxy_ip_address != NULL) {
         printf("Info: Dynamic Forward Proxy IP: %s:%d\n", proxy_ip_address, proxy_port);
@@ -465,7 +471,7 @@ int main(int argc, char *argv[]) {
         goto cleanup;
     }
 
-    struct hook_err egress_err = setup_hook(obj, /*eno1*/2, BPF_TC_EGRESS, &tc_hook[1], &tc_opts[1]);
+    struct hook_err egress_err = setup_hook(obj, /*eno1*/egress_ifindx, BPF_TC_EGRESS, &tc_hook[1], &tc_opts[1]);
     if (egress_err.err && egress_err.err != -EEXIST) {
         fprintf(stderr, "Error: Failed to create TC egress hook: %d\n", err);
         goto cleanup;
