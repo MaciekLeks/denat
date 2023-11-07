@@ -2,10 +2,10 @@
 In very formal Polish language, _denat_ stands for a deceased person and is mostly used for individuals who have passed away suddenly or under unknown circumstances.
 
 # Info
-_denat_ is a straightforward tool that allows you to redirect network packets to another host, 
-effectively creating a dynamic forward proxy. 
-It achieves the same functionality as netfilter/iptables DNAT (for example, `iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination 192.168.59.120:10080`). 
-However, instead of relying on netfilter functionalities, it leverages eBPF technology. 
+_denat_ is a straightforward tool that allows you to redirect network packets to another host,
+effectively creating a dynamic forward proxy.
+It achieves the same functionality as netfilter/iptables DNAT (for example, `iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination 192.168.59.120:10080`).
+However, instead of relying on netfilter functionalities, it leverages eBPF technology.
 
 
 You might wonder why it's called "denat," as it's likely not a widely used tool. I created it for two primary reasons:
@@ -25,6 +25,21 @@ You might wonder why it's called "denat," as it's likely not a widely used tool.
 
 
 # Examples
+`denat` command takes two arguments, e.g.
+`sudo ./denat -dfproxy=192.168.100.2:11111 -dfports=80`
+
+where:
+- `dfproxy` is the L4 proxy address to which the packets will be redirected
+- `dfports` is the list of ports to redirect, e.g. `80,443,8080`
+
+To use it with envoy config I run (please modify listener address first to align with your network setup):
+```
+func-e run -c envoy-config-80.yml
+```
+where [func-e](https://func-e.io/)
+
+Some examples:
+
 ## Only IPv4:
 ```bash
 sudo denat -dfproxy=192.168.59.120:11111 -dfports=80
@@ -35,8 +50,8 @@ sudo denat -dfproxy=[fd0c:41e9:207b:5400:d740:627c:a774:5131]:11111 -dfports=80,
 ```
 
 ## Preventing routing loops on the same machine
-Your proxy must tag its traffic with the `0x29A` mark (this is the literal value used to verify the mark immediately upon entering the TC egress program). 
-For example, in Envoy, this can be achieved by using the original source listener filter:
+Your proxy must tag its traffic with the `0x29A` mark (this is the literal value used to verify the mark immediately upon entering the TC egress program).
+For example, in Envoy, this can be achieved by using the original source listener filter (you have to have CAP_NET_ADMIN capability):
 ```yaml
 static_resources:
   listeners:
@@ -53,22 +68,14 @@ static_resources:
 ## Local testing
 To test it locally put your proxy on your default interface, e.g. in my case it is eno1 with adress 192.168.100.2
 
-where: 
-- `dfproxy` is the L4 proxy address to which the packets will be redirected
-- `dfports` is the list of ports to redirect, e.g. `80,443,8080`
 
-To use it with envoy config:
-On 192.168.59.120 I run:
-
-```
-func-e run -c envoy-config-80.yml
-```
-where [func-e](https://func-e.io/)
 
 # TODO:
 - [ ] putting proxy on loopback
 - [ ] add support for default policy(e.g. block all except 80,443,8080, or allow to bypass the proxy for other ports)
 - [ ] add verbose flag and remove all redundant logs
+
+
 
 
 
