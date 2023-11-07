@@ -10,9 +10,14 @@ static_resources:
     address:
       socket_address:
         protocol: TCP
-        #address: 192.168.59.1
+        #address: 192.168.100.2
         address: 127.0.0.1
         port_value: 11111
+    listener_filters:
+    - name: envoy.filters.listener.original_src
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.listener.original_src.v3.OriginalSrc
+        mark: 0x29A
     filter_chains:
     - filters:
       - name: envoy.filters.network.http_connection_manager

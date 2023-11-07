@@ -34,15 +34,9 @@
 
 #define BPF_F_CURRENT_NETNS (-1L)
 #define MAX_L4_CONNTACK_ENTRIES 1024 //redefine the number
-//}
 
-//struct tuple_key {
-//    __u32 daddr;
-//    __u32 saddr;
-//    __u16 sport;
-//    __u16 dport;
-//};
-//
+#define PACKET_MARK_PREVENT_LOOP 0x29A
+//}
 
 #define DEBUG_ALL 0
 
