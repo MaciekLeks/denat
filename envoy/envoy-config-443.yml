@@ -11,12 +11,17 @@ static_resources:
         socket_address:
           protocol: TCP
           #address: 192.168.59.120
-          address: 192.168.59.1
+          #address: 192.168.59.1
+          address: 192.168.100.2
           port_value: 11111
       listener_filters:
-        - name: envoy.filters.listener.tls_inspector
-          typed_config:
-            "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+      - name: envoy.filters.listener.original_src
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.listener.original_src.v3.OriginalSrc
+          mark: 0x29A
+      - name: envoy.filters.listener.tls_inspector
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
       filter_chains:
         - filters:
             - name: envoy.filters.network.sni_dynamic_forward_proxy
