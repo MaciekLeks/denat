@@ -241,7 +241,7 @@ false;
 
 static __always_inline int
 process_relative(struct __sk_buff *skb/*, enum bpf_hdr_start_off hdr_start_off*/, bool is_egress) {
-    if (is_egress && skb->mark & PACKET_MARK_PREVENT_LOOP) {
+    if (is_egress && (skb->mark & PACKET_MARK_PREVENT_LOOP) == PACKET_MARK_PREVENT_LOOP) {
         bpf_printk("mark: %u", skb->mark);
         return TC_ACT_OK;
     }
