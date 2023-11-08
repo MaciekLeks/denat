@@ -22,6 +22,7 @@ You might wonder why it's called "denat," as it's likely not a widely used tool.
 - TCP Support
 - UDP Support
 - Routing Loop Prevention
+- Dynamic Forward Proxy with Non-forwarded Traffic Policy (Block/Allow)
 
 # Usage:
 ```
