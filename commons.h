@@ -7,6 +7,10 @@
 
 #define INGRESS_CFG_INDX 0
 #define EGRESS_CFG_INDX 1
+#define EGRESS_POLICY_BLOCKING 0x1
+#define EGRESS_POLICY_ALLOWING 0x0
+
+
 
 // all fields in network byte order except ifindex
 struct edge {
@@ -14,6 +18,7 @@ struct edge {
     unsigned int g_naddr[4]; //e.g. 192.168.59.1 in network byte order (vboxvnet3)
     unsigned int d_naddr[4]; //e.g. 192.168.59.120 in network byte order
     unsigned short d_nport; //e.g. 10080 in network byte order
+    unsigned short options; //e.g. default policy
 };
 
 struct forwarded_port {

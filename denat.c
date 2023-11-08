@@ -229,7 +229,7 @@ static int detach_hook(struct bpf_tc_hook *tc_hook, struct bpf_tc_opts *tc_opts)
 }
 
 int store_config(const struct denat_bpf *obj, const char *proxy_daddr_in, unsigned short proxy_dport,
-                 struct edge *edge) {
+                 struct edge *edge, bool apply_blocking_policy) {
 
     char rt_addr_in[128];
     char rt_ifname[128];
@@ -299,6 +299,7 @@ int store_config(const struct denat_bpf *obj, const char *proxy_daddr_in, unsign
 
     edge->d_nport = htons(proxy_dport);
     edge->ifindx = ifindx;
+    edge->options = apply_blocking_policy ? 0x1 : 0x0;
 
     __u32 key = EGRESS_CFG_INDX;
     ret = bpf_map__update_elem(obj->maps.config_map, &key, sizeof(__u32), edge, sizeof(struct edge), BPF_ANY);
@@ -327,6 +328,15 @@ int store_forwarded_ports(const struct denat_bpf *obj, unsigned int ports[], int
     return 0;
 }
 
+void print_help(char *argv0) {
+    fprintf(stdout, "Usage: %s -dfproxy=[IP]:port -dfports=port1,port2,... [-policy=block|allow]\n", argv0);
+    // print meaning of each argument
+    fprintf(stdout, "  -dfproxy: the IP address and port of the dynamic forward proxy\n");
+    fprintf(stdout, "  -dfports: the list of forwarded ports\n");
+    fprintf(stdout, "  -policy: the policy to apply to the forwarded ports (block or allow), default value is allow\n");
+    fprintf(stdout, "  -help: print this help message\n");
+}
+
 /*
  * Parse the command line arguments.
  *
@@ -337,16 +347,20 @@ int store_forwarded_ports(const struct denat_bpf *obj, unsigned int ports[], int
  * @param port_list: outputs the list of forwarded ports
  * @param num_ports: outputs the number of forwarded ports
  * @param is_ipv6: outputs true if IP address is IPv6, false for IPv4
+ * @param apply_blocking_policy: outputs true if the blocking policy is block, false for allow
  */
-void parse_args(int argc, char *argv[], char **ip_address, int *proxy_port, unsigned int **port_list, int *num_ports, bool *is_ipv6) {
+void parse_args(int argc, char *argv[], char **ip_address, int *proxy_port, unsigned int **port_list, int *num_ports, bool *is_ipv6, bool *apply_blocking_policy) {
+    bool proxy_set = false;
+    bool ports_set = false;
+
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "-dfproxy=", 9) == 0) {
-            *is_ipv6 = true;
             char *proxy_str = strchr(argv[i], '=') + 1;
             // Check if IPv6 address format [address]:port
             char *bracket = strchr(proxy_str, '[');
             char *colon = strrchr(proxy_str, ':');
             if (bracket != NULL && colon != NULL) {
+                *is_ipv6 = true;
                 char *end_bracket = strchr(proxy_str, ']');
                 if (end_bracket != NULL) {
                     *end_bracket = '\0'; // Null-terminate the address
@@ -375,6 +389,7 @@ void parse_args(int argc, char *argv[], char **ip_address, int *proxy_port, unsi
                 fprintf(stderr, "Error: Wrong proxy IP and port number format\n");
                 exit(1);
             }
+            proxy_set = true;
         } else if (strncmp(argv[i], "-dfports=", 9) == 0) {
             char *ports_str = strchr(argv[i], '=') + 1;
             char *token = strtok(ports_str, ",");
@@ -389,7 +404,38 @@ void parse_args(int argc, char *argv[], char **ip_address, int *proxy_port, unsi
                 }
                 token = strtok(NULL, ",");
             }
+            ports_set = true;
+        } else if (strncmp(argv[i], "-policy=", 7) == 0) {
+            char *policy_str = strchr(argv[i], '=') + 1;
+            if (strcmp(policy_str, "block") == 0) {
+                *apply_blocking_policy = true;
+            } else if (strcmp(policy_str, "allow") == 0) {
+                *apply_blocking_policy = false;
+            } else {
+                fprintf(stderr, "Error: Wrong policy format\n");
+                exit(1);
+            }
+        } else if (strncmp(argv[i], "-help", 2) == 0) {
+            print_help(argv[0]);
+            exit(0);
         }
+        else {
+            fprintf(stderr, "Error: Unknown argument: %s\n", argv[i]);
+            print_help(argv[0]);
+            exit(1);
+        }
+    }
+
+    if (!proxy_set) {
+        fprintf(stderr, "Error: -dfproxy argument is required\n");
+        print_help(argv[0]);
+        exit(1);
+    }
+
+    if (!ports_set) {
+        fprintf(stderr, "Error: -dfports argument is required\n");
+        print_help(argv[0]);
+        exit(1);
     }
 }
 
@@ -401,8 +447,9 @@ int main(int argc, char *argv[]) {
     struct denat_bpf *obj;
     int err;
     bool ipv6_only = false;
+    bool apply_blocking_policy = false;
 
-    parse_args(argc, argv, &proxy_ip_address, &proxy_port, &port_list, &num_ports, &ipv6_only);
+    parse_args(argc, argv, &proxy_ip_address, &proxy_port, &port_list, &num_ports, &ipv6_only, &apply_blocking_policy);
 
     int egress_ifindx = get_default_egress_ifindx(ipv6_only);
     if (egress_ifindx < 0) {
@@ -447,7 +494,7 @@ int main(int argc, char *argv[]) {
 
     // store edge config
     struct edge edge;
-    err = store_config(obj, proxy_ip_address, proxy_port, &edge);
+    err = store_config(obj, proxy_ip_address, proxy_port, &edge, apply_blocking_policy);
     if (err) {
         fprintf(stderr, "Error: Failed to store config\n");
         goto cleanup;

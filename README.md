@@ -23,14 +23,23 @@ You might wonder why it's called "denat," as it's likely not a widely used tool.
 - UDP Support
 - Routing Loop Prevention
 
+# Usage:
+```
+ Usage: denat -dfproxy=[IP]:port -dfports=port1,port2,... [-policy=block|allow]
+    -dfproxy: the IP address and port of the dynamic forward proxy
+    -dfports: the list of forwarded ports
+    -policy: the policy to apply to the forwarded ports (block or allow), default value is allow
+    -help: print this help message
+```
 
 # Examples
 `denat` command takes two arguments, e.g.
-`sudo ./denat -dfproxy=192.168.100.2:11111 -dfports=80`
+`sudo ./denat -dfproxy=192.168.100.2:11111 -dfports=80 -policy=block`
 
 where:
 - `dfproxy` is the L4 proxy address to which the packets will be redirected
 - `dfports` is the list of ports to redirect, e.g. `80,443,8080`
+- `policy` all ports except 80 will be blocked
 
 To use it with envoy config I run (please modify listener address first to align with your network setup):
 ```
@@ -42,7 +51,7 @@ Some examples:
 
 ## Only IPv4:
 ```bash
-sudo denat -dfproxy=192.168.59.120:11111 -dfports=80
+sudo denat -dfproxy=192.168.59.120:11111 -dfports=80 
 ```
 ## Only IPv6:
 ```bash
@@ -72,7 +81,6 @@ To test it locally put your proxy on your default interface, e.g. in my case it 
 
 # TODO:
 - [ ] putting proxy on loopback
-- [ ] add support for default policy(e.g. block all except 80,443,8080, or allow to bypass the proxy for other ports)
 - [ ] add verbose flag and remove all redundant logs
 
 
