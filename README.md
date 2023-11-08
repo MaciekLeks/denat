@@ -33,7 +33,7 @@ You might wonder why it's called "denat," as it's likely not a widely used tool.
 ```
 
 # Examples
-`denat` command takes two arguments, e.g.
+`denat` command takes at least two arguments, e.g.
 `sudo ./denat -dfproxy=192.168.100.2:11111 -dfports=80 -policy=block`
 
 where:
