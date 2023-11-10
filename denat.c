@@ -415,7 +415,7 @@ void parse_args(int argc, char *argv[], char **ip_address, int *proxy_port, unsi
                 fprintf(stderr, "Error: Wrong policy format\n");
                 exit(1);
             }
-        } else if (strncmp(argv[i], "-help", 2) == 0) {
+        } else if (strncmp(argv[i], "-help", 5) == 0) {
             print_help(argv[0]);
             exit(0);
         }
@@ -449,6 +449,10 @@ int main(int argc, char *argv[]) {
     bool ipv6_only = false;
     bool apply_blocking_policy = false;
 
+#if defined DENAT_EXTRA_LOG && defined VERBOSE && defined VERIFIER
+    printf("Info: verobse:%d, extra_log:%d, verifier:%d \n", VERBOSE, EXTRA_LOG, VERIFIER);
+#endif
+
     parse_args(argc, argv, &proxy_ip_address, &proxy_port, &port_list, &num_ports, &ipv6_only, &apply_blocking_policy);
 
     int egress_ifindx = get_default_egress_ifindx(ipv6_only);
@@ -473,11 +477,15 @@ int main(int argc, char *argv[]) {
     libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
     libbpf_set_print(libbpf_print_fn);
 
-    char log_buf[64 * 1024];
+    char log_buf[1024 * 1024]; //if too small you see: BPF program load failed: No space left on device
     LIBBPF_OPTS(bpf_object_open_opts, opts,
                 .kernel_log_buf = log_buf,
                 .kernel_log_size = sizeof(log_buf),
+#ifdef DENAT_VERIFIER
                 .kernel_log_level = 1,
+#else
+                .kernel_log_level = 0,
+#endif
     );
 
     obj = denat_bpf__open_opts(&opts);
@@ -485,6 +493,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Error: Failed to open BPF object\n");
         goto cleanup;
     }
+
 
     err = denat_bpf__load(obj);
     if (err) {
@@ -548,10 +557,10 @@ int main(int argc, char *argv[]) {
     read_trace_pipe();
     //}
 
-    fprintf(stdout, "Stopping... Last error code:%d\n", err);
+    fprintf(stdout, "Info: Stopping... Last error code:%d\n", err);
 
     for (int i = 0; i < HOOK_COUNT; i++) {
-        fprintf(stdout, "tc_hook[%p]  tc_opts[%p]\n", tc_hook[i], tc_opts[i]);
+        //fprintf(stdout, "tc_hook[%p]  tc_opts[%p]\n", tc_hook[i], tc_opts[i]);
         if (tc_hook[i] && tc_opts[i]) {
             fprintf(stdout, "Info: Detaching:%d\n", i);
             err = detach_hook(tc_hook[i], tc_opts[i]);

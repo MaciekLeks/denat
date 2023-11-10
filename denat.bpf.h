@@ -36,7 +36,10 @@
 #define PACKET_MARK_PREVENT_LOOP 0x29A
 //}
 
-#define DEBUG_ALL 0
+// I've put -Wnomacro-redefined to suppress the warning
+#if !defined(DENAT_VERBOSE)
+#define bpf_printk(fmt,...)
+#endif
 
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
@@ -71,32 +74,23 @@ SEC(".maps");
 
 
 //{addons
-static __always_inline void ipv4_print_ip(char *prefix, char *suffix, __u32 ip) {
-    unsigned char bytes[4];
-    bytes[0] = ip & 0xFF;
-    bytes[1] = (ip >> 8) & 0xFF;
-    bytes[2] = (ip >> 16) & 0xFF;
-    bytes[3] = (ip >> 24) & 0xFF;
-    bpf_printk("%s:%d.%d.%d.%d%s", prefix, bytes[0], bytes[1], bytes[2], bytes[3], suffix);
-}
-
-#if DEBUG_ALL == 1
+#ifdef DENAT_EXTRA_LOG
 static char *be32_to_ipv4(__be32 ip_value, char *ip_buffer) {
-    __u64 ip_data[4];
+    __u64 ip_data[4] = {0};
 
     ip_data[3] = ((__u64) (ip_value >> 24) & 0xFF);
     ip_data[2] = ((__u64) (ip_value >> 16) & 0xFF);
     ip_data[1] = ((__u64) (ip_value >> 8) & 0xFF);
     ip_data[0] = ((__u64) ip_value & 0xFF);
 
-    bpf_snprintf(ip_buffer, 16, "%d.%d.%d.%d", ip_data, 4 * sizeof(__u64));
+    bpf_snprintf(ip_buffer, 16, "%u.%u.%u.%u", ip_data, 4 * sizeof(__u64));
     return ip_buffer;
 }
-#endif
 
 #define BE32_TO_IPV4(ip_value) ({ \
     be32_to_ipv4((ip_value), (char [32]){}); \
 })
+#endif
 //}addons
 
 

@@ -10,8 +10,6 @@
 #define EGRESS_POLICY_BLOCKING 0x1
 #define EGRESS_POLICY_ALLOWING 0x0
 
-
-
 // all fields in network byte order except ifindex
 struct edge {
     unsigned int ifindx;
