@@ -79,7 +79,7 @@ get_tuple(struct __sk_buff *skb, struct bpf_sock_tuple *sock_tuple, struct connt
         if (*is_ipv4) {
             bpf_core_read(&sock_tuple->ipv4.sport, sizeof(sock_tuple->ipv4.sport) + sizeof(sock_tuple->ipv4.dport),
                           &tcp->source);
-#if DEBUG_ALL == 1
+#ifdef DENAT_EXTRA_LOG
             bpf_printk("sock_tuple: saddr:sport=%x:%x, daddr:dport=%x:%x",
                        sock_tuple->ipv4.saddr, sock_tuple->ipv4.sport,
                        sock_tuple->ipv4.daddr, sock_tuple->ipv4.dport);
@@ -106,11 +106,11 @@ get_tuple(struct __sk_buff *skb, struct bpf_sock_tuple *sock_tuple, struct connt
                           &udp->source);
         }
     } else if (l4_protocol == IPPROTO_ICMP) {
-        struct icmphdr *icmp = data + off;
-        if (data + off + sizeof(struct icmphdr) > data_end)
-            return -18;
-
-        bpf_printk("[ICMP] type:%d", icmp->type);
+//        struct icmphdr *icmp = data + off;
+//        if (data + off + sizeof(struct icmphdr) > data_end)
+//            return -18;
+//
+//        bpf_printk("[ICMP] type:%d", icmp->type);
         *is_icmp = true;
     }
 
@@ -198,7 +198,7 @@ static __always_inline long get_config(struct edge **edge) {
         return -1;
     }
 
-#if DEBUG_ALL == 1
+#ifdef DENAT_EXTRA_LOG
     bpf_printk("config: ifindx=%d, g_naddr=%d, d_naddr=%d, options=%d", (*edge)->ifindx, (*edge)->g_naddr[0], (*edge)->d_naddr[0], (*edge)->options);
 #endif
     return 0;
@@ -231,17 +231,13 @@ process_relative(struct __sk_buff *skb, bool is_egress) {
 
     ret = get_tuple(skb, &original_tuple, &l2, &iphdrl, &is_ipv6, &is_ipv4, &is_arp, &is_udp, &is_tcp, &is_icmp);
     //print all local vars
-    if (DEBUG_ALL) {
-        bpf_printk("ret: %d, is_ipv4:%d, is_ipv6:%d, is_udp:%d, is_tcp:%d",
-                   ret, is_ipv4, is_ipv6, is_udp, is_tcp);
-    }
     if (ret < 0) {
         return TC_ACT_SHOT;
     } else if (ret > 0) {
         return TC_ACT_OK;
     }
     //print original_tuple elements
-#if DEBUG_ALL == 1
+#ifdef DENAT_EXTRA_LOG
     if (is_ipv4) {
         //char src_ip4_buffer[32], dest_ip4_buffer[120];
         //u32_to_ipv4(bpf_ntohl(original_tuple.ipv4.saddr), src_ip4_buffer);
@@ -250,9 +246,9 @@ process_relative(struct __sk_buff *skb, bool is_egress) {
                    BE32_TO_IPV4(original_tuple.ipv4.saddr), bpf_ntohs(original_tuple.ipv4.sport),
                    BE32_TO_IPV4(original_tuple.ipv4.daddr), bpf_ntohs(original_tuple.ipv4.dport));
     } else if (is_ipv6) {
-        bpf_printk("bpf_sock:original_tuple: saddr:sport=%x:%x, daddr:dport=%x:%x",
-                   original_tuple.ipv6.saddr, original_tuple.ipv6.sport,
-                   original_tuple.ipv6.daddr, original_tuple.ipv6.dport);
+//        bpf_printk("bpf_sock:original_tuple: saddr:sport=%x:%x, daddr:dport=%x:%x",
+//                   original_tuple.ipv6.saddr, original_tuple.ipv6.sport,
+//                   original_tuple.ipv6.daddr, original_tuple.ipv6.dport);
     }
 #endif
 

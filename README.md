@@ -13,7 +13,6 @@ You might wonder why it's called "denat," as it's likely not a widely used tool.
 2. I required such functionality for another project of mine, so I decided to create this standalone tool to explore the advantages and disadvantages of packet DNAT (Destination Network Address Translation) as an approach, as opposed to the Linux tproxy method of redirection.
 
 # Pre-requisites
-- _libbpf_ installed
 - _iproute2_ package installed
 
 # Features
@@ -23,6 +22,24 @@ You might wonder why it's called "denat," as it's likely not a widely used tool.
 - UDP Support
 - Routing Loop Prevention
 - Dynamic Forward Proxy with Non-forwarded Traffic Policy (Block/Allow)
+
+# Build
+To construct a silent version of the project, which omits all debug logs, simply execute:
+```
+make all
+```
+To compile the project with debug logs included, use the following command:
+```
+DENAT_VERBOSE=1 make all
+```
+To build project with verifier logs, run:
+```
+DENAT_VERIFIER=1 make all
+```
+Lastly, to generate a build with debug logs and some extra logs, issue the command:
+```
+DENAT_EXTRA_LOG=1 DENAT_VERBOSE=1 make all
+```
 
 # Usage:
 ```
