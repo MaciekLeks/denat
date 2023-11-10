@@ -99,7 +99,6 @@ To test it locally put your proxy on your default interface, e.g. in my case it 
 
 # TODO:
 - [ ] putting proxy on loopback
-- [ ] add verbose flag and remove all redundant logs
 
 
 
